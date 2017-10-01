@@ -7,9 +7,10 @@
 using namespace std;
 
 long long counter = 0;
-double steps = 0.001;
+double steps = 0.005;
 int functionType, power;
 vector<double> coefficients;
+GLfloat rescalingFactor = 1.0f / 8.0f; //Manipulate only the second term to change scaling 
 
 void functionInput() {
 	printf("Trigonometric Functions:\n");
@@ -138,6 +139,9 @@ void drawScene() {
 	glVertex3f(5.0f,-0.1f,0.0f);
 	glEnd();
 
+	glPushMatrix();
+	glTranslatef(0.0f, 0.0f, -15.0f * rescalingFactor);
+
 	glBegin(GL_LINES);
 	for (long long i = 0; i < counter; i++) {
 		posPosition += steps;
@@ -147,6 +151,8 @@ void drawScene() {
 		glVertex3f((GLfloat) negPosition, operation(negPosition), 0.0f);
 		glVertex3f((GLfloat) negPosition - steps, operation(negPosition - steps), 0.0f);
 	}
+
+	glPopMatrix();
 	glEnd();
 
 	glutSwapBuffers();
