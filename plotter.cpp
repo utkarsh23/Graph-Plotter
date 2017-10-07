@@ -1,70 +1,89 @@
 #include <string.h>
 #include <GL/glut.h>
-#include <cmath>
-#include <vector>
+#include <math.h>
 #include <stdio.h>
 
-using namespace std;
+#define segments 1000000
+int w = 1366, h = 768;
+int mouseX, mouseY;
 
-long long counter = 0;
-double steps = 0.005;
-int functionType, power;
-vector<double> coefficients;
-GLfloat rescalingFactor = 1.0f / 8.0f; //Manipulate only the second term to change scaling 
+const float segmentlen = 1.0 / segments;
+const float screenxstart = -5.0f, screenxstop = 5.0f;
+const float screenystart = -2.75f, screenystop = 2.75f;
+//Screen ranges from -5 to +5 on OpenGl coordinates
 
-void functionInput() {
-	printf("Trigonometric Functions:\n");
-	printf("Enter 1,2,3,4,5,6 for sine, cosine, tangent, cosecant, secant, cotangent\n");
-	printf("Polynomial functions:\n");
-	printf("Enter 9\n");
-	while (1) {
-		printf("Enter your choice: ");
-		scanf("%d", &functionType);
-		if (((functionType > 0) && (functionType < 7)) || (functionType == 9)) {
-			break;
-		}
-		else {
-			printf("Wrong choice!\n");
-		}
-	}
-	if (functionType == 9) {
-		printf("Enter degree of the polynomial: ");
-		scanf("%d", &power);
-		double element;
-		for (int s = 0; s <= power; s++) {
-			printf("Enter coefficient of term with degree %d: ", s);
-			scanf("%lf",  &element);
-			coefficients.push_back(element);
-		}
-	}
-}
+float funcdata[20] = { 0 }, y[segments] = { 0 };
+int degree, funcoption;
+float startx, stopx; //Range of x to be plotted
+float starty = INFINITY, stopy = -INFINITY;
 
-double polynomialFunc(double v) {
-	double toret = 0.0;
-	for (int t = 0; t <= power; t++) {
-		toret += coefficients[t] * pow(v, t);
-	}
-	return toret;
-}
-
-GLfloat operation(double val) {
-	switch (functionType) {
+float funcval(float x) {
+	int i;
+	float val = 0;
+	switch (funcoption) {
+		case 0:
+			for (i = 0; i <= degree; i++) {
+				val += funcdata[i] * pow(x, i);
+			}
+			return val;
 		case 1:
-			return (GLfloat) sin(val);
+			return sin(x);
 		case 2:
-			return (GLfloat) cos(val);
+			return cos(x);
 		case 3:
-			return (GLfloat) tan(val);
+			return tan(x);
 		case 4:
-			return (GLfloat) 1.0 / sin(val);
+			return 1.0 / sin(x);
 		case 5:
-			return (GLfloat) 1.0 / cos(val);
+			return 1.0 / cos(x);
 		case 6:
-			return (GLfloat) 1.0 / tan(val);
-		case 9:
-			return (GLfloat) polynomialFunc(val);
+			return 1.0  / tan(x);
 		default:
-			break;
+			return val;
+	}
+}
+
+void precompute() {
+	int i;
+	float x = startx;
+	for (i = 0; i<segments; i++) {
+		y[i] = funcval(x);
+		if (y[i]<starty) {
+			starty = y[i];
+		}
+		if (y[i]>stopy) {
+			stopy = y[i];
+		}
+		x += (stopx - startx) / segments;
+	}
+}
+
+void dispString(double x, double y, char *string)
+{
+	glRasterPos2f(x, y);
+	for (int i = 0; string[i] != '\0'; i++)
+		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, string[i]);
+}
+
+void inpfunc() {
+	int i;
+	printf("0 -> polynomial function\n1 -> sin\n2 -> cos\n3 -> tan\n4 -> cosec\n5 -> sec\n6 -> cot\nEnter: ");
+	scanf("%d", &funcoption);
+	if (funcoption == 0) {
+		printf("Enter degree of polynomial.\n");
+		scanf("%d", &degree);
+		for (i = degree; i>0; i--) {
+			printf("Enter coefficient of x^%d.: ", i);
+			scanf("%f", &funcdata[i]);
+		}
+		printf("Enter value of constant term.: ");
+		scanf("%f", &funcdata[0]);
+	}
+	printf("Enter range of x in form [start] [stop] (0 0 for default): ");
+	scanf("%f %f", &startx, &stopx);
+	if (startx >= stopx) {
+		startx = -5;
+		stopx = 5;
 	}
 }
 
@@ -85,99 +104,163 @@ void handleResize(int w, int h) {
 	glViewport(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(45.0, (double) w / (double) h, 1.0, 200.0);
+	gluPerspective(45.0, (double)w / (double)h, 1.0, 200.0);
+}
+
+void mouseMotion(int x, int y) {
+	mouseX = x;
+	mouseY = y;
+}
+
+void drawPointLoc() {
+	int i = ((float)mouseX * 100000) / w;
+	float x = 0.0f, fx = 0.0f;
+
+	x = screenxstart + 10.0f*(i) / 100000;
+	fx = screenystart + 5.5*(y[i] - starty) / (stopy - starty);
+
+	//printf("%d %d %f\n",i,mouseX,x);
+
+	glPushMatrix();
+	glTranslatef(x, 0.0f, 0.0f);
+	glBegin(GL_LINES);
+	glColor3f(0.1f, 0.6f, 0.1f);
+	glVertex3f(0.0f, 2.75f, 0.0f);
+	glVertex3f(0.0f, -2.75f, 0.0f);
+	glEnd();
+
+	glPointSize(6);
+
+	glBegin(GL_POINTS);
+	glColor3f(1.0f, 0.0f, 0.0f);
+	glVertex3f(0.0f, fx, 0.0f);
+	glEnd();
+	glPopMatrix();
+}
+
+void drawArrowAxes() {
+	int left = 1, right = 1, top = 1, bottom = 1;
+
+	float neworix = (0.0f - startx) * 10 / (stopx - startx) - 5.0f; //transforms the position of y axis on screen depending on input range of function.
+	if (neworix >= 5.0f) {
+		neworix = 5.0f;
+		right = 0;
+	}
+	else if (neworix <= -5.0f) {
+		neworix = -5.0f;
+		left = 0;
+	}
+
+	float neworiy = (0.0f - starty)*5.5 / (stopy - starty) - 2.75f; //transforms the position of x axis on screen depending on y values.
+	if (neworiy >= 2.75f) {
+		neworiy = 2.75f;
+		top = 0;
+	}
+	else if (neworiy <= -2.75f) {
+		neworiy = -2.75f;
+		bottom = 0;
+	}
+
+	glPushMatrix();
+	glTranslatef(neworix, 0.0f, 0.0f);
+
+	glBegin(GL_LINES);
+	glVertex3f(0.0f, -2.80f, 0.0f);
+	glVertex3f(0.0f, 2.80f, 0.0f);
+	glEnd();
+
+	glBegin(GL_TRIANGLES);
+	if (bottom) { //Render bottom arrow?
+		glVertex3f(-0.04f, -2.70f, 0.0f);
+		glVertex3f(0.0f, -2.80f, 0.0f);
+		glVertex3f(0.04f, -2.70f, 0.0f);
+	}
+
+	if (top) { //Render top arrow?
+		glVertex3f(-0.04f, 2.70f, 0.0f);
+		glVertex3f(0.0f, 2.80f, 0.0f);
+		glVertex3f(0.04f, 2.70f, 0.0f);
+	}
+	glEnd();
+	glPopMatrix();
+
+	glPushMatrix();
+	glTranslatef(0.0f, neworiy, 0.0f);
+	glBegin(GL_LINES);
+	glVertex3f(-5.1f, 0.0f, 0.0f);
+	glVertex3f(5.1f, 0.0f, 0.0f);
+	glEnd();
+
+	glBegin(GL_TRIANGLES);
+	if (left) { //Render left arrow?
+		glVertex3f(-5.0, 0.04, 0.0f);
+		glVertex3f(-5.1f, 0.0f, 0.0f);
+		glVertex3f(-5.0f, -0.04f, 0.0f);
+	}
+
+	if (right) { //Render right arrow?
+		glVertex3f(5.0, 0.04, 0.0f);
+		glVertex3f(5.1f, 0.0f, 0.0f);
+		glVertex3f(5.0f, -0.04f, 0.0f);
+	}
+	glEnd();
+	glPopMatrix();
 }
 
 void drawScene() {
-	double posPosition = 0.0;
-	double negPosition = 0.0;
-	double first, second;
-
+	//printf("Draw\n");
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
 	glTranslatef(0.0f, 0.0f, -7.0f);
+	glColor3f(1.0f, 1.0f, 1.0f);
 
-	glBegin(GL_LINES);
-	glVertex3f(-5.1f, 0.0f, 0.0f);
-	glVertex3f(5.1f, 0.0f, 0.0f);
-	glEnd();
-
-	glBegin(GL_LINES);
-	glVertex3f(0.0f, -2.75f, 0.0f);
-	glVertex3f(0.0f, 2.75f, 0.0f);
-	glEnd();
-
-	glBegin(GL_LINES);
-	glVertex3f(0.0f, -2.75f, 0.0f);
-	glVertex3f(0.0f, 2.75f, 0.0f);
-	glEnd();
+	drawArrowAxes();
 
 	glBegin(GL_LINE_STRIP);
-	glVertex3f(-0.1f,-2.65f,0.0f);
-	glVertex3f(0.0f,-2.75f,0.0f);
-	glVertex3f(0.1f,-2.65f,0.0f);
-	glEnd();
-
-	glBegin(GL_LINE_STRIP);
-	glVertex3f(-0.1f,2.65f,0.0f);
-	glVertex3f(0.0f,2.75f,0.0f);
-	glVertex3f(0.1f,2.65f,0.0f);
-	glEnd();
-
-	glBegin(GL_LINE_STRIP);
-	glVertex3f(-5.0,0.1,0.0f);
-	glVertex3f(-5.1f,0.0f,0.0f);
-	glVertex3f(-5.0f,-0.1f,0.0f);
-	glEnd();
-
-	glBegin(GL_LINE_STRIP);
-	glVertex3f(5.0,0.1,0.0f);
-	glVertex3f(5.1f,0.0f,0.0f);
-	glVertex3f(5.0f,-0.1f,0.0f);
-	glEnd();
-
-	glPushMatrix();
-	glTranslatef(0.0f, 0.0f, -15.0f * rescalingFactor);
-
-	glBegin(GL_LINES);
-	for (long long i = 0; i < counter; i++) {
-		posPosition += steps;
-		negPosition -= steps;
-		glVertex3f((GLfloat) posPosition, operation(posPosition), 0.0f);
-		glVertex3f((GLfloat) posPosition + steps, operation(posPosition + steps), 0.0f);
-		glVertex3f((GLfloat) negPosition, operation(negPosition), 0.0f);
-		glVertex3f((GLfloat) negPosition - steps, operation(negPosition - steps), 0.0f);
+	int i;
+	float x = startx; //Actual value of x of function.
+	for (i = 0; i < segments; i++) {
+		float xdisp = screenxstart + 10 * (x - startx) / (stopx - startx); //Corresponding value of x on screen.
+		float ydisp = screenystart + 5.5*(y[i] - starty) / (stopy - starty);
+		glVertex3f(xdisp, ydisp, 0.0f);
+		x += (stopx - startx) / segments;
 	}
-
-	glPopMatrix();
 	glEnd();
+
+	drawPointLoc();
 
 	glutSwapBuffers();
 }
 
 void update(int value) {
-	if (counter < pow(10,8))
-		counter++;
 	glutPostRedisplay();
-	glutTimerFunc(1, update, 0);
+	glutTimerFunc(50, update, 0);
 }
 
 int main(int argc, char** argv) {
-	functionInput();
+
+	inpfunc();
+	precompute();
+
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(800, 800);
 	glutInitWindowPosition(200, 200);
+
 	initRendering();
 	glutCreateWindow("Graph Plotter");
 	glutFullScreen();
+
+	glutPassiveMotionFunc(mouseMotion);
 	glutDisplayFunc(drawScene);
 	glutKeyboardFunc(handleKeypress);
 	glutReshapeFunc(handleResize);
-	glutTimerFunc(1, update, 0);
+	glutTimerFunc(50, update, 0);
+
 	glutMainLoop();
+
 	return 0;
 }
