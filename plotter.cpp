@@ -55,7 +55,7 @@ GLfloat operation(double val) {
 		case 9:
 			return (GLfloat) polynomialFunc(val);
 		default:
-            return 0;
+			return 0;
 			break;
 	}
 }
@@ -160,9 +160,11 @@ void handleArrowpress(int key, int x, int y) {
 			precompute();
 			break;
 		case GLUT_KEY_DOWN:
-			startx += 10;
-			stopx -= 10;
-			precompute();
+			if ((startx + 10) <= (stopx - 10)) {
+				startx += 10;
+				stopx -= 10;
+				precompute();
+			}
 			break;
 		case GLUT_KEY_LEFT:
 			startx -= 10;
@@ -293,8 +295,6 @@ void drawScene() {
 		x += (stopx - startx) / segments;
 	}
 	glEnd();
-
-	drawPointLoc();
     
     glutPostRedisplay();
 
